@@ -1,5 +1,7 @@
 #include <iostream>
 #include <sstream>
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
 #include "Crypter.h"
 
 using namespace std;
@@ -7,7 +9,8 @@ using namespace ci;
 
 namespace mndl { namespace crypter {
 
-const int SUBSTRING_SIZE = 100;
+const int   SUBSTRING_SIZE = 100;
+const char *DELIMITER      = ":::";
 
 bool Crypter::generateKey( const fs::path &privateKeyName, const fs::path &publicKeyName, const std::string &password )
 {
@@ -48,9 +51,9 @@ bool Crypter::generateKey( const fs::path &privateKeyName, const fs::path &publi
 	return ret;
 }
 
-vector<int> Crypter::rsaPublicEncrypt( const fs::path &publicKeyName, const string &text )
+string Crypter::rsaPublicEncrypt( const fs::path &publicKeyName, const string &text )
 {
-	vector<int> ret;
+	string ret;
 
 	OpenSSL_add_all_algorithms();
 
@@ -71,7 +74,7 @@ vector<int> Crypter::rsaPublicEncrypt( const fs::path &publicKeyName, const stri
 	return ret;
 }
 
-string Crypter::rsaPublicDencrypt( const fs::path &publicKeyName, const vector<int> &text )
+string Crypter::rsaPublicDencrypt( const fs::path &publicKeyName, const string &text )
 {
 	string ret;
 
@@ -94,9 +97,9 @@ string Crypter::rsaPublicDencrypt( const fs::path &publicKeyName, const vector<i
 	return ret;
 }
 
-vector<int> Crypter::rsaPrivateEncrypt( const fs::path &privateKeyName, const string &password, const string &text )
+string Crypter::rsaPrivateEncrypt( const fs::path &privateKeyName, const string &password, const string &text )
 {
-	vector<int> ret;
+	string ret;
 
 	OpenSSL_add_all_algorithms();
 
@@ -116,7 +119,7 @@ vector<int> Crypter::rsaPrivateEncrypt( const fs::path &privateKeyName, const st
 	return ret;
 }
 
-string Crypter::rsaPrivateDencrypt( const fs::path &privateKeyName, const string &password, const vector<int> &text )
+string Crypter::rsaPrivateDencrypt( const fs::path &privateKeyName, const string &password, const string &text )
 {
 	string ret;
 
@@ -138,9 +141,9 @@ string Crypter::rsaPrivateDencrypt( const fs::path &privateKeyName, const string
 	return ret;
 }
 
-vector<int> Crypter::rsaEncrypt( RSA *key, const string &text, CrypterFunction crypterFunction )
+string Crypter::rsaEncrypt( RSA *key, const string &text, CrypterFunction crypterFunction )
 {
-	vector<int> ret;
+	string ret;
 
 	if( key && crypterFunction )
 	{
@@ -156,7 +159,10 @@ vector<int> Crypter::rsaEncrypt( RSA *key, const string &text, CrypterFunction c
 
 			int size = crypterFunction( subSize, (unsigned char *)subText.c_str(), encryptText, key, RSA_PKCS1_PADDING );
 
-			addData( ret, encryptText, size );
+			if( posText != 0 )
+				ret += DELIMITER;
+
+			ret += base64Encode( encryptText, size );
 
 			if( size == -1 )
 			{
@@ -173,7 +179,7 @@ vector<int> Crypter::rsaEncrypt( RSA *key, const string &text, CrypterFunction c
 	return ret;
 }
 
-string Crypter::rsaDecrypt( RSA *key, const vector<int> &text, CrypterFunction crypterFunction )
+string Crypter::rsaDecrypt( RSA *key, const string &text, CrypterFunction crypterFunction )
 {
 	string ret;
 
@@ -183,12 +189,11 @@ string Crypter::rsaDecrypt( RSA *key, const vector<int> &text, CrypterFunction c
 		unsigned char *encryptText = (unsigned char*)OPENSSL_malloc( decryptSize );
 		unsigned char *decryptText = (unsigned char*)OPENSSL_malloc( decryptSize + 1 ); // have space for 0 terminate
 
-		int from = 0;
-		while( from < (int)text.size())
+		boost::char_separator<char> sep( DELIMITER );
+		boost::tokenizer< boost::char_separator<char> > tokens( text, sep );
+		BOOST_FOREACH( const string& token, tokens )
 		{
-			int size = getData( text, encryptText, from );
-			from += size + 1;
-
+			int size = base64Decode( token, encryptText );
 			int i = crypterFunction( size, encryptText, decryptText, key, RSA_PKCS1_PADDING );
 
 			if( i == -1 )
@@ -197,7 +202,8 @@ string Crypter::rsaDecrypt( RSA *key, const vector<int> &text, CrypterFunction c
 				break;
 			}
 
-			decryptText[i] = 0;
+			decryptText[ i ] = 0;
+
 			ret += (char*)decryptText;
 		}
 
@@ -208,26 +214,44 @@ string Crypter::rsaDecrypt( RSA *key, const vector<int> &text, CrypterFunction c
 	return ret;
 }
 
-void Crypter::addData( vector<int> &vec, const unsigned char *data, int size )
+string Crypter::base64Encode( const unsigned char *input, int length )
 {
-	vec.push_back( size );
-	for( int pos = 0; pos < size; ++pos )
-	{
-		vec.push_back( data[pos] );
-	}
+	BIO *b64, *bmem;
+	BUF_MEM *bptr;
+
+	b64 = BIO_new( BIO_f_base64());
+	bmem = BIO_new( BIO_s_mem());
+//	BIO_set_flags( b64, BIO_FLAGS_BASE64_NO_NL );
+	b64 = BIO_push( b64, bmem );
+	BIO_write( b64, input, length );
+	BIO_flush( b64 );
+	BIO_get_mem_ptr( b64, &bptr );
+
+	char *buffer = (char *)malloc( bptr->length );
+	memcpy( buffer, bptr->data, bptr->length - 1 );
+	buffer[ bptr->length - 1 ] = 0;
+
+	BIO_free_all( b64 );
+
+	string ret = buffer;
+	free( buffer );
+
+	return ret;
 }
 
-int Crypter::getData( const vector<int> &vec, unsigned char *data, int from )
+int Crypter::base64Decode( const string text, unsigned char *output )
 {
-	int size = vec[from];
-	from++;
+	BIO *b64, *bmem;
 
-	for( int pos = from; pos < from + size; ++pos )
-	{
-		data[pos-from] = vec[pos];
-	}
+	b64  = BIO_new( BIO_f_base64());
+	bmem = BIO_new_mem_buf( (void*)text.c_str(), text.length());
+	bmem = BIO_push( b64, bmem );
 
-	return size;
+	int length = BIO_read( bmem, output, text.length());
+
+	BIO_free_all( bmem );
+
+	return length;
 }
 
 void Crypter::printUchar( const unsigned char *text, int length )
@@ -240,41 +264,6 @@ void Crypter::printUchar( const unsigned char *text, int length )
 			cout << (int)text[pos];
 	}
 	cout << "======END======" << endl;
-}
-
-string Crypter::toString( const vector<int> &text )
-{
-	stringstream strStream;
-	int size = text.size();
-
-	for( int pos = 0; pos < size; ++pos )
-	{
-		strStream << text[pos] << "|";
-	}
-
-	return strStream.str();
-}
-
-vector<int> Crypter::fromString( const string &text )
-{
-	vector<int> ret;
-	int size = text.size();
-
-	int i = 0;
-	for( int pos = 0; pos < size; ++pos )
-	{
-		if( text[pos] == '|' )
-		{
-			ret.push_back( i );
-			i = 0;
-			continue;
-		}
-
-		i *= 10;
-		i += text[pos] - '0';
-	}
-
-	return ret;
 }
 
 } } // namespace mndl::crypter

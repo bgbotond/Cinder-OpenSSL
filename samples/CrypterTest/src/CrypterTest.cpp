@@ -12,12 +12,11 @@ void main()
 	fs::path publicKey  = "public.pem";
 	fs::path privateKey = "private.pem";
 	string   password   = "secret";
-	string   code;
 
-	Crypter::generateKey( privateKey, publicKey, password );
+//	Crypter::generateKey( privateKey, publicKey, password );
 
 	{
-		vector<int> encryptedText = Crypter::rsaPublicEncrypt( publicKey, text );
+		string encryptedText = Crypter::rsaPublicEncrypt( publicKey, text );
 		string decryptedText = Crypter::rsaPrivateDencrypt( privateKey, password, encryptedText );
 
 		if( text == decryptedText )
@@ -27,7 +26,7 @@ void main()
 	}
 
 	{
-		vector<int> encryptedText = Crypter::rsaPrivateEncrypt( privateKey, password, text );
+		string encryptedText = Crypter::rsaPrivateEncrypt( privateKey, password, text );
 		string decryptedText = Crypter::rsaPublicDencrypt( publicKey, encryptedText );
 
 		if( text == decryptedText )
