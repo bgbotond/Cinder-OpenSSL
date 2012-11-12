@@ -141,6 +141,82 @@ string Crypter::rsaPrivateDencrypt( const fs::path &privateKeyName, const string
 	return ret;
 }
 
+string Crypter::rsaPublicEncrypt( const std::string &publicKeyData, const string &text )
+{
+	string ret;
+
+	OpenSSL_add_all_algorithms();
+
+	BIO *bpo       = BIO_new_mem_buf( (void*)publicKeyData.c_str(), publicKeyData.length());
+	RSA *publicKey = PEM_read_bio_RSA_PUBKEY( bpo, NULL, NULL, NULL );
+
+	ret = rsaEncrypt( publicKey, text, (CrypterFunction)RSA_public_encrypt );
+
+	BIO_free( bpo       );
+	RSA_free( publicKey );
+
+	EVP_cleanup();
+
+	return ret;
+}
+
+string Crypter::rsaPublicDencrypt( const std::string &publicKeyData, const string &text )
+{
+	string ret;
+
+	OpenSSL_add_all_algorithms();
+
+	BIO *bpo       = BIO_new_mem_buf( (void*)publicKeyData.c_str(), publicKeyData.length());
+	RSA *publicKey = PEM_read_bio_RSA_PUBKEY( bpo, NULL, NULL, NULL );
+
+	ret = rsaDecrypt( publicKey, text, (CrypterFunction)RSA_public_decrypt );
+
+	BIO_free( bpo       );
+	RSA_free( publicKey );
+
+	EVP_cleanup();
+
+	return ret;
+}
+
+string Crypter::rsaPrivateEncrypt( const std::string &privateKeyData, const string &password, const string &text )
+{
+	string ret;
+
+	OpenSSL_add_all_algorithms();
+
+	BIO *bpo        = BIO_new_mem_buf( (void*)privateKeyData.c_str(), privateKeyData.length());
+	RSA *privateKey = PEM_read_bio_RSAPrivateKey( bpo, NULL, NULL, (void*)password.c_str());
+
+	ret = rsaEncrypt( privateKey, text, (CrypterFunction)RSA_private_encrypt );
+
+	BIO_free( bpo        );
+	RSA_free( privateKey );
+
+	EVP_cleanup();
+
+	return ret;
+}
+
+string Crypter::rsaPrivateDencrypt( const std::string &privateKeyData, const string &password, const string &text )
+{
+	string ret;
+
+	OpenSSL_add_all_algorithms();
+
+	BIO *bpo        = BIO_new_mem_buf( (void*)privateKeyData.c_str(), privateKeyData.length());
+	RSA *privateKey = PEM_read_bio_RSAPrivateKey( bpo, NULL, NULL, (void*)password.c_str());
+
+	ret = rsaDecrypt( privateKey, text, (CrypterFunction)RSA_private_decrypt );
+
+	BIO_free( bpo        );
+	RSA_free( privateKey );
+
+	EVP_cleanup();
+
+	return ret;
+}
+
 string Crypter::rsaEncrypt( RSA *key, const string &text, CrypterFunction crypterFunction )
 {
 	string ret;

@@ -23,6 +23,11 @@ public:
 	static std::string      rsaPrivateEncrypt ( const ci::fs::path &privateKeyName, const std::string &password, const std::string &text );
 	static std::string      rsaPrivateDencrypt( const ci::fs::path &privateKeyName, const std::string &password, const std::string &text );
 
+	static std::string      rsaPublicEncrypt  ( const std::string  &publicKey                                  , const std::string &text );
+	static std::string      rsaPublicDencrypt ( const std::string  &publicKey                                  , const std::string &text );
+	static std::string      rsaPrivateEncrypt ( const std::string  &privateKey,     const std::string &password, const std::string &text );
+	static std::string      rsaPrivateDencrypt( const std::string  &privateKey,     const std::string &password, const std::string &text );
+
 protected:
 	static std::string      rsaEncrypt( RSA *key, const std::string &text, CrypterFunction crypterFunction );
 	static std::string      rsaDecrypt( RSA *key, const std::string &text, CrypterFunction crypterFunction );
