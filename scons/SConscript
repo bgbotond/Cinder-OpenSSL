@@ -1,3 +1,5 @@
+# TODO: add libssl and libcrypto dylib to the application
+
 import os
 
 Import('env')
@@ -21,7 +23,6 @@ def CheckPKG(context, name):
     context.Result(ret)
     return ret
 
-# configure on posix with pkg-config
 if (not GetOption('clean')):
     conf = env.Configure(custom_tests = { 'CheckPKGConfig' : CheckPKGConfig,
                                             'CheckPKG' : CheckPKG })
