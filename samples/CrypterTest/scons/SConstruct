@@ -1,0 +1,10 @@
+env = Environment()
+
+env['APP_TARGET'] = 'CrypterTest'
+env['APP_SOURCES'] = ['../src/CrypterTest.cpp']
+
+# Cinder-OpenSSL
+env = SConscript('../../../scons/SConscript', exports = 'env')
+
+SConscript('../../../../../scons/SConscript', exports = 'env')
+
